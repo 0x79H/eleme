@@ -32,7 +32,7 @@ hb_discount = 5
 
 limit = 50
 logging.basicConfig(
-    level=logging.WARNING,
+    level=logging.INFO,
     format="[%(asctime)s] \t%(name)s:\t%(levelname)s:\t %(message)s"
 )
 
@@ -46,7 +46,11 @@ def get_desktop():
 def setting():
     conn = pymysql.connect(db_server, db_user, db_pass, charset='utf8')
     cursor = conn.cursor()
-    cursor.execute("DROP DATABASE  {0}".format(db_db))
+    try:
+        cursor.execute("DROP DATABASE  {0}".format(db_db))
+        conn.commit()
+    except:
+        pass
     cursor.execute("CREATE DATABASE {0}".format(db_db))
     conn.commit()
     cursor.close()
@@ -105,16 +109,12 @@ def get_info():
                         buy = manjian
                         discount = attribute[manjian]["1"]
                         cursor = db.cursor()
-                        # SQL 插入语句
-                        sql = "INSERT INTO activities(name, \
+                        sql = u"INSERT INTO activities(name, \
                                    tips, buy, discount,express_price,express_fee) \
                                    VALUES ('%s', '%s', '%s', '%s','%s','%s')" % \
-                              (name, description_tips + '|' + tips, buy, discount, description['price'],
+                              (name, description_tips + u'|' + tips, buy, discount, description['price'],
                                description['fee'])
-
-                        # 执行sql语句
                         cursor.execute(sql)
-                        # 提交到数据库执行
                         db.commit()
 
     db.close()
@@ -154,18 +154,19 @@ table td:hover:after,table thead th:not(:empty):hover:after{content:'';position:
     for i1, i2, i3, i4, i5, i6 in cursor:
         if u'蛋糕' in i1:
             continue
+        i1 = re.sub("'", r"\'", i1)  # 怎么会有带单引号的xx店铺名
         html += text.format(i1, i2, i3, i4, i5, i6)
 
     html += "</table>\r\n"
     filename = get_desktop() + u'\\' + name + u'_' + time.strftime("%Y-%m-%d_%H%M", time.localtime()) + u'.html'
     with codecs.open(filename, "w", "utf-8") as f:
         f.write(html)
-    print "已生成至桌面。"
+    logging.info("已生成至桌面。")
 
 
 if __name__ == '__main__':
     setting()
     get_info()
-    get_output(40)
+    get_output()
 
 # forked from https://gist.github.com/hooklife/b416c326e1ea726b38003f44b9109ed0
