@@ -1,9 +1,14 @@
 # -*- coding: UTF-8 -*-
+# coding=utf-8
+
+import time
+import codecs
 
 import requests
 import json
 import pymysql
 import logging
+import _winreg
 
 # 选地址后地址栏内
 ele_geohash = 'xxxxxxxxxxxx'
@@ -30,6 +35,12 @@ logging.basicConfig(
     level=logging.WARNING,
     format="[%(asctime)s] \t%(name)s:\t%(levelname)s:\t %(message)s"
 )
+
+
+def get_desktop():
+    key = _winreg.OpenKey(_winreg.HKEY_CURRENT_USER,
+                          r'Software\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders')
+    return _winreg.QueryValueEx(key, "Desktop")[0]
 
 
 def setting():
@@ -94,12 +105,16 @@ def get_info():
                         buy = manjian
                         discount = attribute[manjian]["1"]
                         cursor = db.cursor()
+                        # SQL 插入语句
                         sql = "INSERT INTO activities(name, \
                                    tips, buy, discount,express_price,express_fee) \
                                    VALUES ('%s', '%s', '%s', '%s','%s','%s')" % \
                               (name, description_tips + '|' + tips, buy, discount, description['price'],
                                description['fee'])
+
+                        # 执行sql语句
                         cursor.execute(sql)
+                        # 提交到数据库执行
                         db.commit()
 
     db.close()
@@ -107,15 +122,45 @@ def get_info():
 
 def get_output(pay_money=999999):
     sql = """select name,tips,buy,discount,if(buy<={0},{0}-discount-{1}+express_fee,buy-discount-{1}+express_fee) as pay,if(buy<={0},({0}-discount-{1}+express_fee)/{0},(buy-discount-{1}+express_fee)/buy) as percent from activities where if(buy<={0},{0}-discount-{1}+express_fee,buy-discount-{1}+express_fee)<{2} order by if(buy<={0},({0}-discount-{1}+express_fee)/{0},(buy-discount-{1}+express_fee)/buy)"""
+    name = u"折扣"
+    do_sql(sql, name, pay_money)
+    sql = """select name,tips,buy,discount,if(buy<={0},{0}-discount-{1}+express_fee,buy-discount-{1}+express_fee) as pay,if(buy<={0},({0}-discount-{1}+express_fee)/{0},(buy-discount-{1}+express_fee)/buy) as percent from activities where if(buy<={0},{0}-discount-{1}+express_fee,buy-discount-{1}+express_fee)<{2} order by if(buy<={0},{0}-discount-{1}+express_fee,buy-discount-{1}+express_fee)"""
+    name = u"价格"
+    do_sql(sql, name, pay_money)
+    time.sleep(5)
+
+
+def do_sql(sql, name, pay_money):
     sql = sql.format(hb_limit, hb_discount, pay_money)
     db = pymysql.connect(db_server, db_user, db_pass, db_db, charset='utf8')
     cursor = db.cursor()
     cursor.execute(sql)
-    # text = "{0:>10}{1:>10}{2:>10}{3:>10}{4:>10}{5:>10}"
-    # text="<tr><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td></tr>"
-    # print text.format("店家名", "活动", "满", "减", "实付款", "折扣")
-    for row in cursor:
-        print row
+    html = u"""<style type="text/css">
+*,:after,:before{box-sizing:border-box}
+body{font-family:Open Sans,sans-serif;font-size:13px;margin:20px;text-align:center;text-transform:uppercase;color:#000;background-color:#fff}
+h1{font-size:21px;margin:1.5em 0}
+table{overflow:hidden;width:auto;max-width:100%;margin:0 auto;border-collapse:collapse;border-spacing:0}
+table td{padding:10px;position:relative;outline:0;border-bottom:1px solid rgba(0,0,0,.1);vertical-align:top}
+table thead th{border-bottom-width:2px}
+table tbody th{text-align:left;white-space:nowrap}
+table tbody>tr:hover td,table tbody>tr:hover th{background:#fffe96}
+table td:hover:after,table thead th:not(:empty):hover:after{content:'';position:absolute;z-index:-1;top:-5000px;left:0;width:100%;height:625pc;background:#fffe96}
+   </style>
+    """
+    html += "<table>\r\n"
+    html += u"<thead><tr><th>{0}</th><th>{1}</th><th>{2}</th><th>{3}</th><th>{4}</th><th>{5}</th></tr></thead>".format(
+        u"店家名", u"规则", u"满", u"减", u"实付款", u"折扣")
+    text = u"<tr><th>{0}</th><td>{1}</td><td>{2}</td><td>{3}</td><td>{4}</td><td>{5:.3f}</td></tr>\r\n"
+    for i1, i2, i3, i4, i5, i6 in cursor:
+        if u'蛋糕' in i1:
+            continue
+        html += text.format(i1, i2, i3, i4, i5, i6)
+
+    html += "</table>\r\n"
+    filename = get_desktop() + u'\\' + name + u'_' + time.strftime("%Y-%m-%d_%H%M", time.localtime()) + u'.html'
+    with codecs.open(filename, "w", "utf-8") as f:
+        f.write(html)
+    print "已生成至桌面。"
 
 
 if __name__ == '__main__':
