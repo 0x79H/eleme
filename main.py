@@ -29,6 +29,7 @@ db_db = 'ele'
 # 红包
 hb_limit = 35
 hb_discount = 5
+hb_api = "https://www.ele.me/restapi/promotion/v3/users/{0}/hongbaos?limit=200&order_by=end_date".format(ele_USERID)
 
 limit = 50
 logging.basicConfig(
@@ -85,12 +86,18 @@ def get_info():
     offset = 0
     db = pymysql.connect(db_server, db_user, db_pass, db_db, charset='utf8')
     while True:
-        url = "https://www.ele.me/restapi/shopping/restaurants?extras%5B%5D=activities&geohash={0}&latitude={1}&longitude={2}&offset={3}&limit={4}&terminal=web".format(
-            ele_geohash, ele_latitude, ele_longitude, offset, limit)
+        # url = "https://www.ele.me/restapi/shopping/restaurants?extras%5B%5D=activities&geohash={0}&latitude={1}&longitude={2}&offset={3}&limit={4}&terminal=web".format(
+        #     ele_geohash, ele_latitude, ele_longitude, offset, limit)
+        # forked from https://gist.github.com/hooklife/b416c326e1ea726b38003f44b9109ed0
+        url = "https://h5.ele.me/restapi/shopping/v1/cluster_activity/10080161/restaurants?latitude={0}&longitude={1}&params=%7B%7D&offset={2}&limit={3}".format(
+            ele_latitude, ele_longitude,offset,limit)
+        # 品质联盟
+        
         cookies = dict(SID=ele_SID, USERID=ele_USERID, ubt_ssid=ele_ubt_ssid)
         data = requests.get(url, cookies=cookies).json()
         logging.info("offset:" + str(offset))
         json.dumps(data, sort_keys=True, indent=4, separators=(',', ':'))
+        data = data['restaurants'] # 品质联盟
         if len(data) == 0:
             break
 
@@ -169,4 +176,3 @@ if __name__ == '__main__':
     get_info()
     get_output()
 
-# forked from https://gist.github.com/hooklife/b416c326e1ea726b38003f44b9109ed0
